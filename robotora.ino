@@ -1,3 +1,33 @@
+/*
+   ____   ___  _  ___  
+  |___ \ / _ \/ |/ _ \ 
+    __) | | | | | (_) |
+   / __/| |_| | |\__, |
+  |_____|\___/|_|  /_/
+   ____       _           _    
+  |  _ \ ___ | |__   ___ | |_  
+  | |_) / _ \| '_ \ / _ \| __| 
+  |  _ < (_) | |_) | (_) | |_  
+  |_| \_\___/|_.__/ \___/ \__| 
+   _____     _       _   _     _             
+  |_   _| __(_) __ _| |_| |__ | | ___  _ __  
+    | || '__| |/ _` | __| '_ \| |/ _ \| '_ \ 
+    | || |  | | (_| | |_| | | | | (_) | | | |
+    |_||_|  |_|\__,_|\__|_| |_|_|\___/|_| |_|
+
+   チーム名 夢工房B
+   機体名   うすしお
+
+   ロボトラ用のプログラムです
+   
+   使用マイコン Arduino Due
+   32Bit, 3.3V駆動なので気をつけて
+
+   Created 2019/08/28〜
+   By Ebina
+*/
+
+
 const int8_t FOT_NUM = 8;                          // フォトセンサの数
 const int32_t MAXLIGHT = 100000;                   // 最大値
 const int32_t MINLIGHT = 0;                        // 最小値
@@ -12,20 +42,54 @@ int32_t maxdeg = -100000; // 左右の差の最大値
 int32_t mindeg =  100000; // 左右の差の最小値
 int8_t brightnum  = 0; // 一番明るい場所
 int8_t pbrightnum = 0; // 一個前の明るい場所
-double hoge;
+double hoge = 0.0;
 double pasthoge = 0.0;
 
 void setup() {
   Serial.begin(115200);                // 好き
   delay(100);                          // 多分安全
 
-  analogReadResolution(12);            // analogReadが12bitで読まれる
+  analogReadResolution(12);            // analogReadが12bitで読まれる(Dueのみ）
 
   for(int8_t i = 0; i < FOT_NUM; i++){ // 初期化
     maxlight[i] = -32000;
     minlight[i] =  32000;
   }
   timer = millis();
+
+  configure_initial();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+
+void loop() {
+  fot_read();
+  normalize();               // 正規化
+  brightnum = maxlightnum(); // 最大の明るさ
+  int angle = getangle();    // 角度
+
+  Serial.print(angle);
+  Serial.println("");
+
+  delay(10);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+
+
+void configure_initial(){     // 最初に行われる初期設定
+  while(millis()-timer < 1500){ // 最大, 最小値の更新
+    fot_read();
+    getminmax();
+  }
+  while(millis()-timer < 3000){ // maxdeg, mindegの更新
+    fot_read();
+    normalize();
+    maxdeg = max(maxdeg, light[5]-light[3]);
+    mindeg = min(mindeg, light[5]-light[3]);
+  }
 }
 
 void fot_read(){ // センサの値を読む
@@ -61,12 +125,6 @@ int8_t maxlightnum(){                // 最大の明るさの場所
   if(maxper < MIDDLELIGHT) return -1;  // どれも明るくない
   return maxnum;
 }
-
-
-double mymap(double x, double in_min, double in_max, double out_min, double out_max){ // double型のmap
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
 
 void show_light(){ // debug用
   for(int8_t i = 0; i < FOT_NUM; i++){
@@ -109,25 +167,6 @@ double getangle(){                                  // 角度を返す
   return respons;
 }
 
-void loop() {
-  fot_read();
-  while(millis()-timer < 1500){
-    fot_read();
-    getminmax();
-  }
-  while(millis()-timer < 3000){
-    fot_read();
-    normalize();
-    int8_t tmp = light[5]-light[3];
-    maxdeg = max(maxdeg, tmp);
-    mindeg = min(mindeg, tmp);
-  }
-  normalize();               // 正規化
-  brightnum = maxlightnum(); // 最大の明るさ
-  int angle = getangle();    // 角度
-
-  Serial.print(angle);
-  Serial.println("");
-
-  delay(10);
+double mymap(double x, double in_min, double in_max, double out_min, double out_max){ // double型のmap
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
