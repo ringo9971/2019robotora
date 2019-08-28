@@ -1,31 +1,31 @@
 /*
-   ____   ___  _  ___  
-  |___ \ / _ \/ |/ _ \ 
-    __) | | | | | (_) |
+   ____   ___  _  ___
+   |___ \ / _ \/ |/ _ \
+   __) | | | | | (_) |
    / __/| |_| | |\__, |
-  |_____|\___/|_|  /_/
-   ____       _           _    
-  |  _ \ ___ | |__   ___ | |_  
-  | |_) / _ \| '_ \ / _ \| __| 
-  |  _ < (_) | |_) | (_) | |_  
-  |_| \_\___/|_.__/ \___/ \__| 
-   _____     _       _   _     _             
-  |_   _| __(_) __ _| |_| |__ | | ___  _ __  
-    | || '__| |/ _` | __| '_ \| |/ _ \| '_ \ 
-    | || |  | | (_| | |_| | | | | (_) | | | |
-    |_||_|  |_|\__,_|\__|_| |_|_|\___/|_| |_|
+   |_____|\___/|_|  /_/
+   ____       _           _
+   |  _ \ ___ | |__   ___ | |_
+   | |_) / _ \| '_ \ / _ \| __|
+   |  _ < (_) | |_) | (_) | |_
+   |_| \_\___/|_.__/ \___/ \__|
+   _____     _       _   _     _
+   |_   _| __(_) __ _| |_| |__ | | ___  _ __
+   | || '__| |/ _` | __| '_ \| |/ _ \| '_ \
+   | || |  | | (_| | |_| | | | | (_) | | | |
+   |_||_|  |_|\__,_|\__|_| |_|_|\___/|_| |_|
 
    チーム名 夢工房B
    機体名   うすしお
 
    ロボトラ用のプログラムです
-   
+
    使用マイコン Arduino Due
    32Bit, 3.3V駆動なので気をつけて
 
    Created 2019/08/28〜
    By Ebina
-*/
+ */
 
 
 const int8_t FOT_NUM = 8;                          // フォトセンサの数
@@ -67,8 +67,7 @@ void loop() {
   fot_read();
   normalize();               // 正規化
   brightnum = maxlightnum(); // 最大の明るさ
-  int angle = getangle();    // 角度
-
+  double angle = getangle(); // 角度
   Serial.print(angle);
   Serial.println("");
 
@@ -139,14 +138,13 @@ double getangle(){                                  // 角度を返す
 
   if(brightnum == -1){
     if(pbrightnum == 0) respons = 0;                    // 最小値
-    else respons = pbrightnum;                          // 最大値
+    else respons = pasthoge;                            // 最大値
   }else{
-    pbrightnum = brightnum;
-    if(brightnum == 0) respons = 0;                     // 最小値
-    else if(brightnum == FOT_NUM-1) respons = pasthoge; // 最大値
+    if(pbrightnum == 0) respons = 0;                     // 最小値
+    else if(pbrightnum == FOT_NUM-1) respons = pasthoge; // 最大値
     else{
       hoge = light[brightnum+1]-light[brightnum-1];       // 一番明るいところの左右の差
-       // {{{ 特殊な操作
+      // {{{ 特殊な操作
       hoge = abs(hoge);
       hoge = pow(hoge, 0.25);
 
@@ -157,14 +155,15 @@ double getangle(){                                  // 角度を返す
 
       if(light[brightnum+1]-light[brightnum-1] > 0) hoge = 6-hoge;
       hoge += (brightnum-1)*6;
-       // }}}
+      // }}}
 
       respons = hoge;
       pasthoge = hoge;
     }
+    pbrightnum = brightnum;
   }
 
-  return respons;
+  return mymap(respons, 0.0, 36.0, -255.0, 255.0);
 }
 
 double mymap(double x, double in_min, double in_max, double out_min, double out_max){ // double型のmap
