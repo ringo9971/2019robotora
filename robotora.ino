@@ -1,20 +1,23 @@
 /*
-   ____   ___  _  ___
-   |___ \ / _ \/ |/ _ \
-   __) | | | | | (_) |
-   / __/| |_| | |\__, |
-   |_____|\___/|_|  /_/
-   ____       _           _
-   |  _ \ ___ | |__   ___ | |_
-   | |_) / _ \| '_ \ / _ \| __|
-   |  _ < (_) | |_) | (_) | |_
-   |_| \_\___/|_.__/ \___/ \__|
-   _____     _       _   _     _
-   |_   _| __(_) __ _| |_| |__ | | ___  _ __
-   | || '__| |/ _` | __| '_ \| |/ _ \| '_ \
-   | || |  | | (_| | |_| | | | | (_) | | | |
-   |_||_|  |_|\__,_|\__|_| |_|_|\___/|_| |_|
 
+   ____   ___  _  ___  
+  |___ \ / _ \/ |/ _ \ 
+    __) | | | | | (_) |
+   / __/| |_| | |\__, |
+  |_____|\___/|_|  /_/ 
+
+   ____       _           _   
+  |  _ \ ___ | |__   ___ | |_ 
+  | |_) / _ \| '_ \ / _ \| __|
+  |  _ < (_) | |_) | (_) | |_ 
+  |_| \_\___/|_.__/ \___/ \__|
+                            
+   _____     _       _   _                     
+  |_   _| __(_) __ _| |_| |__  _ __ ___  _ __  
+    | || '__| |/ _` | __| '_ \| '__/ _ \| '_ \ 
+    | || |  | | (_| | |_| | | | | | (_) | | | |
+    |_||_|  |_|\__,_|\__|_| |_|_|  \___/|_| |_|
+                                             
    チーム名 夢工房B
    機体名   うすしお
 
@@ -28,9 +31,9 @@
  */
 
 
-const int8_t FOT_NUM = 8;                          // フォトセンサの数
-const int32_t MAXLIGHT = 100000;                   // 最大値
-const int32_t MINLIGHT = 0;                        // 最小値
+const int8_t FOT_NUM      = 8;                     // フォトセンサの数
+const int32_t MAXLIGHT    = 100000;                // 最大値
+const int32_t MINLIGHT    = 0;                     // 最小値
 const int32_t MIDDLELIGHT = (MAXLIGHT+MINLIGHT)/2; // 中間値
 
 int32_t light[FOT_NUM];    // 取ってきた明るさ
@@ -38,12 +41,10 @@ int32_t maxlight[FOT_NUM]; // 明るさの最大値
 int32_t minlight[FOT_NUM]; // 明るさの最小値
 int32_t timer;
 
-int32_t maxdeg = -100000; // 左右の差の最大値
-int32_t mindeg =  100000; // 左右の差の最小値
-int8_t brightnum  = 0; // 一番明るい場所
-int8_t pbrightnum = 0; // 一個前の明るい場所
-double hoge = 0.0;
-double pasthoge = 0.0;
+int8_t brightnum  = 0;   // 一番明るい場所
+int8_t pbrightnum = 0;   // 一個前の明るい場所
+double hoge       = 0.0;
+double pasthoge   = 0.0;
 
 void setup() {
   Serial.begin(115200);                // 好き
@@ -79,15 +80,9 @@ void loop() {
 
 
 void configure_initial(){     // 最初に行われる初期設定
-  while(millis()-timer < 1500){ // 最大, 最小値の更新
+  while(millis()-timer < 2000){ // 最大, 最小値の更新
     fot_read();
     getminmax();
-  }
-  while(millis()-timer < 3000){ // maxdeg, mindegの更新
-    fot_read();
-    normalize();
-    maxdeg = max(maxdeg, light[5]-light[3]);
-    mindeg = min(mindeg, light[5]-light[3]);
   }
 }
 
