@@ -1,5 +1,4 @@
 /*
-
    ____   ___  _  ___  
   |___ \ / _ \/ |/ _ \ 
     __) | | | | | (_) |
@@ -41,13 +40,12 @@ int32_t maxlight[FOT_NUM]; // 明るさの最大値
 int32_t minlight[FOT_NUM]; // 明るさの最小値
 int32_t timer;
 
-int8_t brightnum  = 0;   // 一番明るい場所
-int8_t pbrightnum = 0;   // 一個前の明るい場所
-double hoge       = 0.0;
-double pasthoge   = 0.0;
+int8_t brightnum  = 0; // 一番明るい場所
+int8_t pbrightnum = 0; // 一個前の明るい場所
+double angle = 0.0;    // 角度
 
 void setup() {
-  Serial.begin(115200);                // 好き
+  Serial.begin(115200);                // debug用
   delay(100);                          // 多分安全
 
   analogReadResolution(12);            // analogReadが12bitで読まれる(Dueのみ）
@@ -68,7 +66,7 @@ void loop() {
   fot_read();
   normalize();               // 正規化
   brightnum = maxlightnum(); // 最大の明るさ
-  double angle = getangle(); // 角度
+  getangle();                // 角度
   Serial.print(angle);
   Serial.println("");
 
@@ -151,38 +149,29 @@ void show_light(){ // debug用
   /* Serial.print("\n"); */
 }
 
-double getangle(){                                  // 角度を返す
-  double respons = 0;                                 // 返り値
-
+void getangle(){                                         // 角度を返す
   if(brightnum == -1){
-    if(pbrightnum == 0) respons = 0;                    // 最小値
-    else respons = pasthoge;                            // 最大値
+    if(pbrightnum == 0) angle = -255.0;                      // 最小値
   }else{
-    if(pbrightnum == 0) respons = 0;                     // 最小値
-    else if(pbrightnum == FOT_NUM-1) respons = pasthoge; // 最大値
-    else{
-      hoge = light[brightnum+1]-light[brightnum-1];       // 一番明るいところの左右の差
+    if(pbrightnum == 0) angle = -255.0;                      // 最小値
+    else if(brightnum != FOT_NUM-1){
+      double cur = abs(light[brightnum+1]-light[brightnum-1]); // 一番明るいところの左右の差
       // {{{ 特殊な操作
-      hoge = abs(hoge);
-      hoge = pow(hoge, 0.25);
+      cur = pow(cur, 0.25);
 
-      hoge = mymap(hoge, 5.5, 17.0, -1.0, 1.0);
-      hoge = constrain(hoge, -1.0, 1.0);
+      cur = mymap(cur, 5.5, 17.0, -1.0, 1.0);
+      cur = constrain(cur, -1.0, 1.0);
 
-      hoge = acos(hoge);
+      cur = acos(cur);
 
-      if(light[brightnum+1]-light[brightnum-1] > 0) hoge = 6-hoge;
-      hoge += (brightnum-1)*6;
+      if(light[brightnum+1]-light[brightnum-1] > 0) cur = 6.0-cur;
+      cur += (brightnum-1)*6.0;
       // }}}
-
-      respons = hoge;
-      pasthoge = hoge;
+      cur = mymap(cur, 0.0, 36.0, -255.0, 255.0);
+      angle = constrain(cur, -255.0, 255.0);
     }
     pbrightnum = brightnum;
   }
-
-  respons = mymap(respons, 0.0, 36.0, -255.0, 255.0);
-  return constrain(respons, -255.0, 255.0);
 }
 
 double mymap(double x, double in_min, double in_max, double out_min, double out_max){ // double型のmap
