@@ -31,7 +31,7 @@
  */
 
 
-const int8_t FOT_NUM      = 8;                     // フォトセンサの数
+const int8_t  FOT_NUM     = 8;                     // フォトセンサの数
 const int32_t MAXLIGHT    = 100000;                // 最大値
 const int32_t MINLIGHT    = 0;                     // 最小値
 const int32_t MIDDLELIGHT = (MAXLIGHT+MINLIGHT)/2; // 中間値
@@ -78,6 +78,29 @@ void loop() {
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
+/* void right_motor_forward(int pwm){ */
+/*   analogWrite(RM1, pwm); */
+/*   digitalWrite(RM2, LOW); */
+/* } */
+
+/* void right_motor_back(int pwm){ */
+/*   digitalWrite(RM1, LOW); */
+/*   analogWrite(RM2, pwm); */
+/* } */
+
+/* void left_motor_forward(int pwm){ */
+/*   analogWrite(LM1, pwm); */
+/*   digitalWrite(LM2, LOW); */
+/* } */
+
+/* void left_motor_back(int pwm){ */
+/*   digitalWrite(LM1, LOW); */
+/*   analogWrite(LM2, pwm); */
+/* } */
+
+/* void right_motor_halt(){ */
+/*   digitalWrite */
+/* } */
 
 void configure_initial(){     // 最初に行われる初期設定
   while(millis()-timer < 2000){ // 最大, 最小値の更新
@@ -158,7 +181,8 @@ double getangle(){                                  // 角度を返す
     pbrightnum = brightnum;
   }
 
-  return mymap(respons, 0.0, 36.0, -255.0, 255.0);
+  respons = mymap(respons, 0.0, 36.0, -255.0, 255.0);
+  return constrain(respons, -255.0, 255.0);
 }
 
 double mymap(double x, double in_min, double in_max, double out_min, double out_max){ // double型のmap
