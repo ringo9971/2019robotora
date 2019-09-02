@@ -36,7 +36,7 @@ TPC8407 right_motor(5, 4, 3, 2);
 TPC8407 left_motor(9, 8, 7, 6);
 
 // フォトセンサ関連
-const int32_t  FOT_NUM    = 8;                     // フォトセンサの数
+const int32_t FOT_NUM     = 8;                     // フォトセンサの数
 const int32_t MAXLIGHT    = 100000;                // 明るさの最大値
 const int32_t MINLIGHT    = 0;                     // 明るさの最小値
 const int32_t MIDDLELIGHT = (MAXLIGHT+MINLIGHT)/2; // 明るさの中間値
@@ -45,6 +45,7 @@ int32_t maxlight[FOT_NUM];                         // 取ってきた明るさ�
 int32_t minlight[FOT_NUM];                         // 取ってきた明るさの最小値
 int32_t brightnum  = 0;                            // 一番明るい場所
 int32_t pbrightnum = 0;                            // 一個前の明るい場所
+boolean lightflag[FOT_NUM];                        // 明るかったらtrue
 
 // モータースピード
 const int32_t MAXSPEEDNUM = 2;                    // スピードレベルの個数
@@ -82,6 +83,15 @@ void setup() {
 /////////////////////////////////////////////////////////////////////////////
 
 void loop() {
+  getangle();
+  Serial.print("righ:");
+  Serial.print(rightturn?1:0);
+  Serial.print("\t");
+  Serial.print("left:");
+  Serial.print(leftturn?1:0);
+  Serial.println("");
+  rightturn = false;
+  leftturn = false;
   linetrace_motor_operation(1);
   /* Serial.println(manipulation); */
   /* Serial.print(angle); */
@@ -95,7 +105,6 @@ void loop() {
 
 // 操作量の計算
 void manipulation_calc(){ 
-  getangle();                                        // 角度の更新
   manipulation = pgain*angle+dgain*(angle-pangle);   // PD
   manipulation = constrain(manipulation, -255, 255); // 安全のために必要
 }
@@ -194,6 +203,9 @@ void normalize(){
     light[i] = map(light[i], minlight[i], maxlight[i], MINLIGHT, MAXLIGHT);
     light[i] = constrain(light[i], MINLIGHT, MAXLIGHT);
   }
+  for(int32_t i = 0; i < FOT_NUM; i++){
+    lightflag[i] = light[i]>MIDDLELIGHT?true:false;
+  }
 }
 
 // 最大の明るさの場所
@@ -220,14 +232,25 @@ void show_light(){
   /* Serial.print("\n"); */
 }
 
-// 角度を返す
+// 角度の更新
 void getangle(){                                         
   fot_read();
   normalize();                                             // 正規化
   brightnum = maxlightnum();                               // 最大の明るさ
   pangle = angle;
+  if(lightflag[0] && lightflag[7]){
+    rightturn = true;
+    leftturn = true;
+  }else if(lightflag[0] && lightflag[3]){
+    leftturn = true;
+  }else if(lightflag[4] && lightflag[7]){
+    rightturn = true;
+  }
+
   if(brightnum == -1){
     if(pbrightnum == 0) angle = -255.0;                      // 最小値
+    rightturn = true;
+    leftturn  = true;
   }else{
     if(pbrightnum == 0) angle = -255.0;                      // 最小値
     else if(brightnum != FOT_NUM-1){
