@@ -66,11 +66,11 @@ int32_t minlight[FOT_NUM] = {                      // 取ってきた明るさ�
 };
 
 // モータースピード
-const int32_t MAXSPEED = 2;                  // 最大スピード
-const int32_t rightspeed[3] = {255, 130, 0}; // 遅い→ 速い
-const int32_t leftspeed[3] = {255, 130, 0};  // 遅い→ 速い
-boolean rightturn = false;                   // 右直角
-boolean leftturn = false;                    // 左直角
+const int32_t MAXSPEED = 3;                      // 最大スピード
+const int32_t rightspeed[4] = {255, 130, 50, 0}; // 遅い→ 速い
+const int32_t leftspeed[4]  = {255, 130, 50, 0}; // 遅い→ 速い
+boolean rightturn = false;                       // 右直角
+boolean leftturn = false;                        // 左直角
 
 // PID
 const double pgain = 1.05; // pgain
@@ -104,15 +104,16 @@ void setup() {
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-int32_t state = 0;
+int32_t state = 150;
 
 void loop() {
   while(true){
     getangle();
-    /* state = 100; */
     switch(state){
+       // 迷いの森まで
       case 0:
-        if(millis()-timer >= 1000 && rightturn){
+        if(millis()-timer >= 1000 && rightturn){ // 最初のT字路
+          r_rightangle(1, 1);
           update();
         }else{
           linetrace_motor_operation(MAXSPEED);
@@ -120,48 +121,44 @@ void loop() {
         }
         break;
       case 1:
-        if(millis()-timer >= 200){
-          linetrace_motor_operation(1);
-        }else{
-          r_rightangle(1, 1);
+        linetrace_motor_operation(1);
+        if(rightturn || leftturn){               // ボール前のT字路
+          right_motor.forward(rightspeed[1]);
+          delay(250);
+          forward(1);
+          delay(600);
+          stop();                                // 少し待機児童
+          delay(500);
+          back(1);
+          delay(600);
+          l_leftangle(MAXSPEED);                 // T字路
+          l_leftangle(1);
           update();
         }
         break;
       case 2:
         linetrace_motor_operation(1);
-        if(rightturn || leftturn){
-          right_motor.forward(rightspeed[1]);
-          delay(250);
-          forward(1);
-          delay(800);
-          stop();
-          delay(1000);
-          back(1);
-          delay(800);
-          l_leftangle(1, 1);
-          l_leftangle(1, 1);
+        if(rightturn || leftturn){               // 最初のT字路
+          forward(MAXSPEED);
+          delay(150);
+          r_rightangle(MAXSPEED, 1);             // 右に曲がる
           update();
         }
         break;
       case 3:
-        linetrace_motor_operation(1);
-        if(rightturn || leftturn){
-          forward(1);
-          delay(250);
-          r_rightangle(1, 1);
+        linetrace_motor_operation(MAXSPEED);     // 直線
+        if(rightturn || leftturn){               // 迷いの森前のT字路
           update();
         }
         break;
-      case 4:
-        linetrace_motor_operation(MAXSPEED);
-        if(rightturn || leftturn){
-          update();
-        }
-        break;
-      case 5:
+
+       // ここから迷いの森
+      case 4: 
         stop();
         break;
 
+
+       // 迷いの森抜けた後
       case 100:
         linetrace_motor_operation(MAXSPEED);
         if(!lineflag){                           // 1個目の左カーブ
@@ -180,9 +177,47 @@ void loop() {
         if(millis()-timer >= 2500){
           if(rightturn || leftturn) update();
         }
-        /* if(rightturn || leftturn) state++; */
         break;
       case 103:
+        state = 150;
+        break;
+
+
+       // ボーナスの所
+      case 150:
+        if(millis()-timer >= 1000 && (rightturn || leftturn)){
+          /* forward(2); */
+          /* delay(250); */
+          l_leftangle(1);
+          update();
+        }else{
+          linetrace_motor_operation(2);
+          fold_flag();
+        }
+        break;
+      case 151:
+        if(analogRead(9) > 2300) update();
+        else linetrace_motor_operation(1);
+        break;
+      case 152:
+        left_rotation(1);
+        delay(600);
+        update();
+      case 153:
+        if(analogRead(9) <= 1500){
+          left_rotation(1);
+        }else{
+          update();
+        }
+        break;
+      case 154:
+        if(analogRead(9) > 2500){
+          update();
+        }else{
+          forward(1);
+        }
+        break;
+      case 155:
         stop();
         break;
     }
@@ -214,6 +249,16 @@ void back(int speed){
   left_motor.back(leftspeed[speed]);
 }
 
+void right_rotation(int speed){
+  right_motor.back(rightspeed[speed]);
+  left_motor.forward(leftspeed[speed]);
+}
+
+void left_rotation(int speed){
+  right_motor.forward(rightspeed[speed]);
+  left_motor.back(leftspeed[speed]);
+}
+
 void fold_flag(){
   rightturn = false;
   leftturn  = false;
@@ -237,6 +282,9 @@ void r_rightangle(int32_t maxspeed, int32_t minspeed){
   stop();                           // デッドタイム
   fold_flag();
 }
+void r_rightangle(int32_t speed){
+  r_rightangle(speed,speed);
+}
 
 // 左に90度曲がる
 void l_leftangle(int32_t maxspeed, int32_t minspeed){
@@ -254,6 +302,9 @@ void l_leftangle(int32_t maxspeed, int32_t minspeed){
   }
   stop();                            // デッドタイム
   fold_flag();
+}
+void l_leftangle(int32_t speed){
+  l_leftangle(speed, speed);
 }
 
 // 停止(デッドタイム1ms用)
