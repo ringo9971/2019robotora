@@ -83,14 +83,13 @@ boolean lineflag = true;   // ライン上にいるか
 int32_t timer; // timer
 
 void setup() {
-  pinMode(8, INPUT);
-  pinMode(9, INPUT);
-  pinMode(10, INPUT);
-  Serial.begin(115200);     // debug用
-  delay(100);               // 多分安全
+  pinMode(8, INPUT);    // PSD
+  pinMode(9, INPUT);    // PSD
+  pinMode(10, INPUT);   // PSD
+  Serial.begin(115200); // debug用
+  delay(100);           // 多分安全
 
   analogReadResolution(12); // analogReadが12bitで読まれる(Dueのみ）
-
 
   /* for(int32_t i = 0; i < FOT_NUM; i++){ // 初期化 */
   /*   maxlight[i] = -32000; */
@@ -185,33 +184,33 @@ void loop() {
 
        // ボーナスの所
       case 150:
-        if(millis()-timer >= 1000 && (rightturn || leftturn)){
+        if(millis()-timer >= 1000 && (rightturn || leftturn)){ // 十字路
           /* forward(2); */
           /* delay(250); */
           l_leftangle(1);
           update();
         }else{
           linetrace_motor_operation(2);
-          fold_flag();
+          fold_flag();                                         // requied
         }
         break;
       case 151:
-        if(analogRead(9) > 2300) update();
+        if(analogRead(9) > 2300) update();                     // コーンが近づいたら
         else linetrace_motor_operation(1);
         break;
       case 152:
-        left_rotation(1);
+        left_rotation(1);                                      // 少し左回転
         delay(600);
         update();
       case 153:
-        if(analogRead(9) <= 1500){
+        if(analogRead(9) <= 1500){                             // コーンのところまで回転
           left_rotation(1);
         }else{
           update();
         }
         break;
       case 154:
-        if(analogRead(9) > 2500){
+        if(analogRead(9) > 2500){                              // コーンに接近
           update();
         }else{
           forward(1);
