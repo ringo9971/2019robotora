@@ -231,33 +231,38 @@ void update(){
   timer = millis();
 }
 
-// 操作量の計算
-void manipulation_calc(){ 
-  manipulation = pgain*angle+dgain*(angle-pangle);   // PD
-  manipulation = constrain(manipulation, -255, 255); // 安全のために必要
-  Serial.println(angle-pangle);
-}
-
+// 前進
 void forward(int speed){
   right_motor.forward(rightspeed[speed]);
   left_motor.forward(leftspeed[speed]);
 }
 
+// 後退
 void back(int speed){
   right_motor.back(rightspeed[speed]);
   left_motor.back(leftspeed[speed]);
 }
 
+// 右回転
 void right_rotation(int speed){
   right_motor.back(rightspeed[speed]);
   left_motor.forward(leftspeed[speed]);
 }
 
+// 左回転
 void left_rotation(int speed){
   right_motor.forward(rightspeed[speed]);
   left_motor.back(leftspeed[speed]);
 }
 
+// 停止(デッドタイム1ms用)
+void stop(){
+  right_motor.halt();
+  left_motor.halt();
+  delay(1);
+}
+
+// フラグの初期化
 void fold_flag(){
   rightturn = false;
   leftturn  = false;
@@ -306,13 +311,6 @@ void l_leftangle(int32_t speed){
   l_leftangle(speed, speed);
 }
 
-// 停止(デッドタイム1ms用)
-void stop(){
-  right_motor.halt();
-  left_motor.halt();
-  delay(1);
-}
-
 // モーターを動かす
 void motor_operation(int32_t speed, int32_t maxspeed){
   int32_t rv, lv;        // 右と左のpwm
@@ -331,6 +329,13 @@ void motor_operation(int32_t speed, int32_t maxspeed){
     right_motor.forward(rv);
     left_motor.forward(lv);
   }
+}
+
+// 操作量の計算
+void manipulation_calc(){ 
+  manipulation = pgain*angle+dgain*(angle-pangle);   // PD
+  manipulation = constrain(manipulation, -255, 255); // 安全のために必要
+  /* Serial.println(angle-pangle); */
 }
 
 // ライントレースをする
