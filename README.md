@@ -1,7 +1,6 @@
 # 2019 Robot Triathlon
-ロボトラに使用するプログラムです.
 
-ロボトラに参加する人は参考にしてください. 
+[2019ロボットトライアストン](http://www.robot-triathlon.org/2019/index.html)に使用するプログラムです.
 
 回路部品
 * [Arduino Due](https://store.arduino.cc/usa/due)
@@ -44,19 +43,25 @@
   r_rightangle();
 
 // ラインに沿って左に曲がります. 十字路でも使用できます
-  l_rightangle();
+  l_leftangle();
 
 // 操作量の分だけモーターを動かします. linetrace_motor_operation()で使用します
   motor_operation();
 
-// 取ってきた角度からPD制御を用いて操作量を決定します. linetrace_motor_operationで使用します
+// 取ってきた角度からPD制御を用いて操作量を決定します. linetrace_motor_operation()で使用します
   manipulation_calc();
 
 // ライントレースします
   linetrace_motor_operation();
 
+// setup()でnormalize()に必要なセンサの最大値と最小値を更新します. 今回のプログラムでは使用していません
+  configure_initial();
+
 // センサの値を読みます. getangle()で使用します
   fort_read();
+
+// センサの最大値と最小値を更新します. configure_initial()で使用します
+  getminmax();
 
 // センサの値を正規化します. getangle()で使用します
   normalize();
@@ -64,6 +69,6 @@
 // ラインに一番近いフォトインタラプタの番号を返します. getangle()で使用します
   maxlightnum();
 
-// 現在の角度をとflagを更新します
+// 現在の角度とflagを更新します
   getangle();
 ```
