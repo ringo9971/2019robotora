@@ -33,7 +33,7 @@
 
    Created 2019/08/28〜
    By Ebina
- */
+*/
 
 #include <TPC8407.h>
 
@@ -75,41 +75,69 @@ int32_t minlight[FOT_NUM] = {                      // 取ってきた明るさ�
 const int32_t MAXSPEED = 3;                      // 最大スピード
 const int32_t rightspeed[4] = {255, 130, 50, 0}; // 遅い→ 速い
 const int32_t leftspeed[4]  = {255, 130, 50, 0}; // 遅い→ 速い
-boolean rightturn = false;                       // 右直角
-boolean leftturn = false;                        // 左直角
 
-// PID
+// フラグ
+boolean rightturn = false; // 右直角
+boolean leftturn = false;  // 左直角
+boolean lineflag = true;   // ライン上にいるか
+
+// PD制御
 const double pgain = 1.05; // pgain
 const double dgain = 220;  // dgain
 int32_t manipulation;      // 操作量
 double angle  = 0.0;       // 角度
 double pangle = 0.0;       // 一個前の角度
-boolean lineflag = true;   // ライン上にいるか
 
-int32_t timer; // timer
+// loop内で使用
+int32_t state = 150; // switch-caseで使用
+int32_t timer;       // timer
 
 void setup() {
-  pinMode(8, INPUT);    // PSD
-  pinMode(9, INPUT);    // PSD
-  pinMode(10, INPUT);   // PSD
   Serial.begin(115200); // debug用
   delay(100);           // 多分安全
 
+  pinMode(8, INPUT);    // PSD
+  pinMode(9, INPUT);    // 真ん中のPSD
+  pinMode(10, INPUT);   // PSD
+
+  pinMode(15, INPUT_PULLUP); // 右側スイッチ
+  pinMode(18, INPUT_PULLUP); // 真ん中スイッチ
+  pinMode(21, INPUT_PULLUP); // 左側スイッチ
+
+  state = !digitalRead(21)*4+!digitalRead(18)*2+!digitalRead(15);
+  switch(state){
+    case 0:
+      state = 0;   // スタート
+      break;
+    case 1:
+      state = 4;   // 迷いの森
+      break;
+    case 2:
+      state = 100; // 迷いの森抜けた後
+      break;
+    case 3:
+      state = 150; // ボーナス
+      break;
+    default:
+      state = 0;
+
+  }
+
+
   analogReadResolution(12); // analogReadが12bitで読まれる(Dueのみ）
 
+   // キャリブレーションをするなら必要
   /* for(int32_t i = 0; i < FOT_NUM; i++){ // 初期化 */
   /*   maxlight[i] = -32000; */
   /* minlight[i] =  32000; */
   /* } */
   /* configure_initial(); */
 
-  timer = millis();
+  timer = millis(); // timerの更新
 }
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
-
-int32_t state = 150;
 
 void loop() {
   while(true){
