@@ -39,7 +39,7 @@
 
 // モーターのコンストラクタ
 TPC8407 right_motor(5, 4, 3, 2);
-TPC8407 left_motor(9, 8, 7, 6);
+TPC8407 left_motor(8, 9, 10, 11);
 
 // フォトセンサ関連
 const int32_t FOT_NUM     = 8;                     // フォトセンサの数
