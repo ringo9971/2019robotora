@@ -38,8 +38,8 @@
 #include <TPC8407.h>
 
 // モーターのコンストラクタ
-TPC8407 right_motor(5, 4, 3, 2);
-TPC8407 left_motor(8, 9, 10, 11);
+TPC8407 right_motor(9, 8, 11, 10);
+TPC8407 left_motor(4, 5, 2, 3);
 
 // フォトセンサ関連
 const int32_t FOT_NUM     = 8;                     // フォトセンサの数
@@ -50,31 +50,33 @@ int32_t light[FOT_NUM];                            // 取ってきた明るさ
 int32_t brightnum  = 0;                            // 一番明るい場所
 int32_t pbrightnum = 0;                            // 一個前の明るい場所
 boolean lightflag[FOT_NUM];                        // 明るかったらtrue
-int32_t maxlight[FOT_NUM] = {                      // 取ってきた明るさの最大値
-  3376,
-  3278,
-  3233,
-  3368,
-  3525,
-  3467,
-  3260,
-  3266
+  /* 3376,  3278,  3233,  3368,  3525,  3467,  3260,  3266 */
+int32_t maxlight[FOT_NUM] = { // 取ってきた明るさの最大値
+3401,
+3250,
+3170,
+3336,
+3513,
+3428,
+3198,
+3268
 };
-int32_t minlight[FOT_NUM] = {                      // 取ってきた明るさの最小値
-  1037, 
-   934, 
-   483, 
-   924, 
-  1218, 
-  1429, 
-   646, 
-  1093
+  /* 1037,  934,  483,  924,  1218,  1429,  646,  1093 */
+int32_t minlight[FOT_NUM] = { // 取ってきた明るさの最小値
+615,
+562,
+282,
+453,
+966,
+1055,
+321,
+693
 };
 
 // モータースピード
 const int32_t MAXSPEED = 3;                      // 最大スピード
-const int32_t rightspeed[4] = {255, 130, 50, 0}; // 遅い→ 速い
-const int32_t leftspeed[4]  = {255, 130, 50, 0}; // 遅い→ 速い
+const int32_t rightspeed[4] = {255, 130, 50, 30}; // 遅い→ 速い
+const int32_t leftspeed[4]  = {255, 130, 50, 30}; // 遅い→ 速い
 
 // フラグ
 boolean rightturn = false; // 右直角
@@ -82,8 +84,8 @@ boolean leftturn = false;  // 左直角
 boolean lineflag = true;   // ライン上にいるか
 
 // PD制御
-const double pgain = 1.05; // pgain
-const double dgain = 220;  // dgain
+const double pgain = 1.25; // pgain
+const double dgain = 230;  // dgain
 int32_t manipulation;      // 操作量
 double angle  = 0.0;       // 角度
 double pangle = 0.0;       // 一個前の角度
@@ -96,9 +98,6 @@ void setup() {
   Serial.begin(115200); // debug用
   delay(100);           // 多分安全
 
-  pinMode(8, INPUT);    // PSD
-  pinMode(9, INPUT);    // 真ん中のPSD
-  pinMode(10, INPUT);   // PSD
 
   pinMode(15, INPUT_PULLUP); // 右側スイッチ
   pinMode(18, INPUT_PULLUP); // 真ん中スイッチ
@@ -118,20 +117,19 @@ void setup() {
     case 3:
       state = 150; // ボーナス
       break;
+    case 6:
+      state = 999;
+      break;
+    case 7:
+      state = 1000;
+      break;
     default:
       state = 0;
-
   }
 
 
   analogReadResolution(12); // analogReadが12bitで読まれる(Dueのみ）
 
-   // キャリブレーションをするなら必要
-  /* for(int32_t i = 0; i < FOT_NUM; i++){ // 初期化 */
-  /*   maxlight[i] = -32000; */
-  /* minlight[i] =  32000; */
-  /* } */
-  /* configure_initial(); */
 
   timer = millis(); // timerの更新
 }
@@ -146,11 +144,11 @@ void loop() {
        // 迷いの森まで
       case 0:
         if(millis()-timer >= 1000 && rightturn){ // 最初のT字路
-          r_rightangle(1, 1);
+          r_rightangle(1, 1, 30);
           update();
         }else{
-          linetrace_motor_operation(MAXSPEED);
-          rightturn = false;
+          linetrace_motor_operation(1);
+          fold_flag();
         }
         break;
       case 1:
@@ -159,13 +157,13 @@ void loop() {
           right_motor.forward(rightspeed[1]);
           delay(250);
           forward(1);
-          delay(600);
+          delay(400);
           stop();                                // 少し待機児童
-          delay(500);
+          delay(800);
           back(1);
-          delay(600);
+          delay(400);
           l_leftangle(MAXSPEED);                 // T字路
-          l_leftangle(1);
+          l_leftangle(1, 1, 150);
           update();
         }
         break;
@@ -175,19 +173,22 @@ void loop() {
           forward(MAXSPEED);
           delay(150);
           r_rightangle(MAXSPEED, 1);             // 右に曲がる
+          fold_flag();
           update();
         }
         break;
       case 3:
         linetrace_motor_operation(MAXSPEED);     // 直線
-        if(rightturn || leftturn){               // 迷いの森前のT字路
+        if(leftturn){               // 迷いの森前のT字路
           update();
         }
         break;
 
        // ここから迷いの森
       case 4: 
-        stop();
+        while(1){
+          stop();
+        }
         break;
 
 
@@ -200,11 +201,16 @@ void loop() {
         }
         break;
       case 101:                                  // うねうね
-        linetrace_motor_operation(MAXSPEED);
-        if(!lineflag && millis()-timer >= 3800){ // 右カーブ
-          r_rightangle(MAXSPEED, 1);
-          update();
+        linetrace_motor_operation(MAXSPEED-1);
+        if(millis()-timer >= 4000){              // 右カーブ
+          if(rightturn || leftturn){
+            r_rightangle(MAXSPEED, 1);
+            update();
+          }
+        }else{
+          fold_flag();
         }
+        break;
       case 102:                                  // 最後の直線
         linetrace_motor_operation(MAXSPEED);
         if(millis()-timer >= 2500){
@@ -212,6 +218,9 @@ void loop() {
         }
         break;
       case 103:
+        while(1){
+          stop();
+        }
         state = 150;
         break;
 
@@ -253,6 +262,24 @@ void loop() {
       case 155:
         stop();
         break;
+
+      case 1000:
+        // キャリブレーションをするなら必要
+        for(int32_t i = 0; i < FOT_NUM; i++){ // 初期化
+          maxlight[i] = -32000;
+        minlight[i] =  32000;
+        }
+        configure_initial();
+        while(true){
+          getangle();
+          Serial.print(angle);
+          Serial.print("\n");
+          delay(10);
+       }
+        break;
+
+      default:
+        stop();
     }
   }
 }
@@ -304,7 +331,7 @@ void fold_flag(){
 }
 
 // 右に90度曲がる
-void r_rightangle(int32_t maxspeed, int32_t minspeed){
+void r_rightangle(int32_t maxspeed, int32_t minspeed, int32_t rad){
   stop();                           // デッドタイム
   getangle();
   while(lineflag){                  // 一度ラインが見えなくなるまで回転
@@ -312,7 +339,7 @@ void r_rightangle(int32_t maxspeed, int32_t minspeed){
     left_motor.forward(leftspeed[maxspeed]);
     getangle();
   }
-  while(!lineflag || angle >= 180){ // 復帰させる
+  while(!lineflag || angle >= rad){ // 復帰させる
     right_motor.back(rightspeed[minspeed]);
     left_motor.forward(leftspeed[minspeed]);
     getangle();
@@ -320,12 +347,15 @@ void r_rightangle(int32_t maxspeed, int32_t minspeed){
   stop();                           // デッドタイム
   fold_flag();
 }
+void r_rightangle(int32_t maxspeed, int32_t minspeed){
+  r_rightangle(maxspeed, minspeed, 240);
+}
 void r_rightangle(int32_t speed){
-  r_rightangle(speed,speed);
+  r_rightangle(speed, speed);
 }
 
 // 左に90度曲がる
-void l_leftangle(int32_t maxspeed, int32_t minspeed){
+void l_leftangle(int32_t maxspeed, int32_t minspeed, int32_t rad){
   stop();                            // デッドタイム
   getangle();
   while(lineflag){                   // 一度ラインが見えなくなるまで回転
@@ -333,13 +363,16 @@ void l_leftangle(int32_t maxspeed, int32_t minspeed){
     left_motor.back(leftspeed[maxspeed]);
     getangle();
   }
-  while(!lineflag || angle <= -180){ // 復帰させる
+  while(!lineflag || angle <= -rad){ // 復帰させる
     right_motor.forward(rightspeed[minspeed]);
     left_motor.back(leftspeed[minspeed]);
     getangle();
   }
   stop();                            // デッドタイム
   fold_flag();
+}
+void l_leftangle(int32_t maxspeed, int32_t minspeed){
+  l_leftangle(maxspeed, minspeed, 240);
 }
 void l_leftangle(int32_t speed){
   l_leftangle(speed, speed);
@@ -436,7 +469,20 @@ void show_light(){
     if(i) Serial.print(",");
     Serial.print(light[i]);
   }
-  /* Serial.print("\n"); */
+  Serial.print("\n");
+}
+void show_minmax(){
+  Serial.print("max");  Serial.print("\n");
+  for(int32_t i = 0; i < FOT_NUM; i++){
+    Serial.print(maxlight[i]);
+    Serial.print("\n");
+  }
+  Serial.print("min");  Serial.print("\n");
+  for(int32_t i = 0; i < FOT_NUM; i++){
+    Serial.print(minlight[i]);
+    Serial.print("\n");
+  }
+  delay(30000);
 }
 
 // 角度の更新
@@ -463,17 +509,17 @@ void getangle(){
   }
 
   if(brightnum == -1){
-    if(pbrightnum == 0) angle = -255.0;                        // 最小値
-    rightturn = true;
-    leftturn  = true;
+    /* if(pbrightnum == 0) angle = -255.0;                        // 最小値 */
+    if(pbrightnum == 0) angle = -255;                        // 最小値
   }else{
-    if(pbrightnum == 0) angle = -255.0;                        // 最小値
+    /* if(pbrightnum == 0) angle = -255.0;                        // 最小値 */
+    if(pbrightnum == 0) angle = -255;                        // 最小値
     else if(brightnum != FOT_NUM-1){
       double cur = abs(light[brightnum+1]-light[brightnum-1]); // 一番明るいところの左右の差
       // {{{ 特殊な操作
-      cur = pow(cur, 0.25);
+      cur = pow(cur, 0.28);
 
-      cur = mymap(cur, 5.5, 17.0, -1.0, 1.0);
+      cur = mymap(cur, 8.0, 24.0, -1.0, 1.0);
       cur = constrain(cur, -1.0, 1.0);
 
       cur = acos(cur);
