@@ -36,6 +36,10 @@
 */
 
 #include <TPC8407.h>
+#include <Servo.h>
+
+// サーボのコンストラクタ
+Servo sv;
 
 // モーターのコンストラクタ
 TPC8407 right_motor(9, 8, 11, 10);
@@ -90,9 +94,11 @@ int32_t manipulation;      // 操作量
 double angle  = 0.0;       // 角度
 double pangle = 0.0;       // 一個前の角度
 
+// psd関係
 int32_t rpsd, mpsd, lpsd;
+int32_t prpsd = -1, pmpsd = -1, plpsd = -1;
 int32_t now, past = -1;
-double lpf = 0.7;
+double lpf = 0.8;
 
 // loop内で使用
 int32_t state = 150; // switch-caseで使用
@@ -102,13 +108,11 @@ void setup() {
   Serial.begin(115200); // debug用
   delay(100);           // 多分安全
 
-
   pinMode(15, INPUT_PULLUP); // 右側スイッチ
   pinMode(18, INPUT_PULLUP); // 真ん中スイッチ
   pinMode(21, INPUT_PULLUP); // 左側スイッチ
 
-  state = !digitalRead(21)*4+!digitalRead(18)*2+!digitalRead(15);
-  switch(state){
+  switch(!digitalRead(21)*4+!digitalRead(18)*2+!digitalRead(15)){
     case 0:
       state = 0;   // スタート
       break;
@@ -124,6 +128,9 @@ void setup() {
     case 4:
       state = 160;
       break;
+    case 5:
+      state = 300;
+      break;
     case 6:
       state = 999;
       break;
@@ -134,9 +141,10 @@ void setup() {
       state = 0;
   }
 
+  sv.attach(13);
+  sv.write(70);
 
   analogReadResolution(12); // analogReadが12bitで読まれる(Dueのみ）
-
 
   timer = millis(); // timerの更新
 }
@@ -147,6 +155,7 @@ void setup() {
 void loop() {
   while(true){
     getangle();
+    read_psd();
     switch(state){
        // 迷いの森まで
       case 0:
@@ -164,7 +173,7 @@ void loop() {
           right_motor.forward(rightspeed[2]);
           delay(250);
           forward(2);
-          delay(400);
+          delay(380);
           stop();                                // 少し待機児童
           delay(800);
           back(2);
@@ -225,9 +234,6 @@ void loop() {
         }
         break;
       case 103:
-        while(1){
-          stop();
-        }
         state = 150;
         break;
 
@@ -237,47 +243,58 @@ void loop() {
         if(millis()-timer >= 1000 && (rightturn || leftturn)){ // 十字路
           forward(1);
           delay(200);
-          l_leftangle(1, 3, 30);
+
+          stop();
+          delay(1);
+
+          while(lineflag){
+            left_rotation(2);
+            getangle();
+          }
+
+          delay(10);
+
+          getangle();
+          while(!lineflag || angle <= -90){
+            left_rotation(1);
+            getangle();
+          }
+          stop();
+          delay(1);
           update();
         }else{
           linetrace_motor_operation(1);
-          fold_flag();                                         // requied
+          fold_flag();                      // requied
         }
         break;
       case 151:
-        if(analogRead(10) > 2300) update();                    // コーンが近づいたら
+        if(analogRead(10) > 2000) update(); // コーンが近づいたら
         else linetrace_motor_operation(1);
         break;
       case 152:
         stop();
         delay(1);
-        left_rotation(1);                                      // 少し左回転
-        delay(600);
+        left_rotation(1);                   // 少し左回転
+        delay(550);
+        stop();
+        delay(1);
         update();
       case 153:
-        if(analogRead(10) <= 1500){                            // コーンのところまで回転
-          left_rotation(1);
-        }else{
-          stop();
-          delay(1);
-          update();
-        }
+        update();
         break;
       case 154:
         read_psd();
-        if(analogRead(10) > 3500){                             // コーンに接近
-          stop();
-          delay(1000);
+        if(analogRead(10) > 3500){          // コーンに接近
           update();
         }else{
           go_to_goal();
         }
         break;
-      case 155: // ここでシュートする
-        if(millis()-timer <= 100){
+      case 155:
+        if(millis()-timer <= 200){
           go_to_goal();
         }else{
-          stop();
+          stop();                           // ここでシュートする
           delay(1500);
           update();
         }
@@ -293,7 +310,7 @@ void loop() {
         update();
         break;
       case 157:
-        if(rightturn || leftturn){
+        if(rightturn || leftturn){ // 十字路
           update();
         }else{
           linetrace_motor_operation(1);
@@ -302,12 +319,19 @@ void loop() {
       case 158:
         forward(1);
         delay(180);
-        l_leftangle(1, 1, 30);
+        l_leftangle(1, 1, 50);
         update();
         break;
       case 159: // ボール回収
+        stop();
+        delay(1);
+        left_motor.forward(leftspeed[1]);
+        delay(200);
+        stop();
+        delay(1);
+
         forward(1);
-        delay(1200);
+        delay(950);
         stop();
         delay(1500);
         back(1);
@@ -316,37 +340,104 @@ void loop() {
         l_leftangle(1, 1, 30);
         update();
         break;
+
       case 160:
-        if(analogRead(10) > 2300) update();                    // コーンが近づいたら
+        if(analogRead(10) > 2000) update(); // コーンが近づいたら
         else linetrace_motor_operation(1);
         break;
       case 161:
         stop();
         delay(1);
-        right_rotation(1);                                      // 少し右回転
-        delay(600);
+        right_rotation(1);                   // 少し左回転
+        delay(550);
+        stop();
+        delay(1);
         update();
       case 162:
-        if(analogRead(10) <= 1500){                            // コーンのところまで回転
-          right_rotation(1);
-        }else{
-          stop();
-          delay(1);
-          update();
-        }
+        update();
         break;
       case 163:
         read_psd();
-        if(mpsd > 4000){                             // コーンに接近
-          stop();
-          delay(1000);
+        if(analogRead(10) > 3500){          // コーンに接近
           update();
         }else{
           go_to_goal();
         }
-      case 164:
-        stop();
         break;
+      case 164:
+        if(millis()-timer <= 150){
+          go_to_goal();
+        }else{
+          stop();                           // ここでシュートする
+          delay(1500);
+          update();
+        }
+        break;
+      case 165:
+        stop();
+
+      case 300:
+        if(millis()-timer >= 1000 && (rightturn || leftturn)){ // 十字路
+          forward(1);
+          delay(200);
+
+          stop();
+          delay(1);
+
+          while(lineflag){
+            left_rotation(2);
+            getangle();
+          }
+
+          delay(10);
+
+          getangle();
+          while(!lineflag || angle <= -90){
+            left_rotation(1);
+            getangle();
+          }
+          stop();
+          delay(1);
+          update();
+        }else{
+          linetrace_motor_operation(1);
+          fold_flag();                      // requied
+        }
+        break;
+      case 301:
+        if(analogRead(10) > 2000) update(); // コーンが近づいたら
+        else linetrace_motor_operation(1);
+        break;
+      case 302:
+        stop();
+        delay(1);
+        right_rotation(1);                   // 少し左回転
+        delay(550);
+        stop();
+        delay(1);
+        update();
+      case 303:
+        update();
+        break;
+      case 304:
+        read_psd();
+        if(analogRead(10) > 3500){          // コーンに接近
+          update();
+        }else{
+          go_to_goal();
+        }
+        break;
+      case 305:
+        if(millis()-timer <= 150){
+          go_to_goal();
+        }else{
+          stop();                           // ここでシュートする
+          delay(1500);
+          update();
+        }
+        break;
+      case 306:
+        stop();
 
 
       case 1000:
@@ -421,6 +512,14 @@ void read_psd(){
   rpsd = analogRead(9);
   mpsd = analogRead(10);
   lpsd = analogRead(11);
+
+  rpsd = lpf*rpsd+(1-lpf)*prpsd;
+  mpsd = lpf*mpsd+(1-lpf)*pmpsd;
+  lpsd = lpf*lpsd+(1-lpf)*plpsd;
+
+  prpsd = rpsd;
+  pmpsd = mpsd;
+  plpsd = lpsd;
 }
 
 // 右に90度曲がる
@@ -428,14 +527,17 @@ void r_rightangle(int32_t maxspeed, int32_t minspeed, int32_t rad){
   stop();                           // デッドタイム
   getangle();
   while(lineflag){                  // 一度ラインが見えなくなるまで回転
-    right_motor.back(rightspeed[maxspeed]);
-    left_motor.forward(leftspeed[maxspeed]);
+    right_rotation(maxspeed);
+    /* right_motor.back(rightspeed[maxspeed]); */
+    /* left_motor.forward(leftspeed[maxspeed]); */
     getangle();
   }
+  getangle();
   delay(1);
   while(!lineflag || angle >= rad){ // 復帰させる
-    right_motor.back(rightspeed[minspeed]);
-    left_motor.forward(leftspeed[minspeed]);
+    right_rotation(minspeed);
+    /* right_motor.back(rightspeed[minspeed]); */
+    /* left_motor.forward(leftspeed[minspeed]); */
     getangle();
   }
   stop();                           // デッドタイム
@@ -453,14 +555,16 @@ void l_leftangle(int32_t maxspeed, int32_t minspeed, int32_t rad){
   stop();                            // デッドタイム
   getangle();
   while(lineflag){                   // 一度ラインが見えなくなるまで回転
-    right_motor.forward(rightspeed[maxspeed]);
-    left_motor.back(leftspeed[maxspeed]);
+    left_rotation(maxspeed);
+    /* right_motor.forward(rightspeed[maxspeed]); */
+    /* left_motor.back(leftspeed[maxspeed]); */
     getangle();
   }
   delay(1);
   while(!lineflag || angle <= -rad){ // 復帰させる
-    right_motor.forward(rightspeed[minspeed]);
-    left_motor.back(leftspeed[minspeed]);
+    left_rotation(minspeed);
+    /* right_motor.forward(rightspeed[minspeed]); */
+    /* left_motor.back(leftspeed[minspeed]); */
     getangle();
   }
   stop();                            // デッドタイム
