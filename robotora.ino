@@ -86,7 +86,7 @@ boolean leftturn = false;  // 左直角
 boolean lineflag = true;   // ライン上にいるか
 
 // PD制御
-const double pgain = 1.25; // pgain
+const double pgain = 1.30; // pgain
 const double dgain = 230;  // dgain
 int32_t manipulation;      // 操作量
 double angle  = 0.0;       // 角度
@@ -176,7 +176,7 @@ void loop() {
         if(rightturn || leftturn){              // ボール前のT字路
           right_motor.forward(rightspeed[2]);
           left_motor.brake();
-          delay(140);
+          delay(135);
           brake(170);
           forward(2);
           delay(660);
@@ -184,7 +184,7 @@ void loop() {
           back(2);
           delay(300);
           l_leftangle(MAXSPEED);                // T字路
-          l_leftangle(2, 2, 150);
+          l_leftangle(2);
           update();
         }
         break;
@@ -213,7 +213,7 @@ void loop() {
         if(go_forest(1)){
           forward(1);
           delay(200);
-          l_leftangle(MAXSPEED);
+          l_leftangle(MAXSPEED, 2);
           timer = millis();
           state = 100;
         }
@@ -307,7 +307,7 @@ void loop() {
         }
         break;
       case 151:
-        if(analogRead(10) > 2000) update(); // コーンが近づいたら
+        if(analogRead(10) > 2200) update(); // コーンが近づいたら
         else linetrace_motor_operation(1);
         break;
       case 152:
@@ -337,7 +337,7 @@ void loop() {
           go_to_goal();
         }else{
           stop(1);                          // ここでシュートする
-          shoot();
+          /* shoot(); */
           update();
         }
         break;
@@ -365,6 +365,7 @@ void loop() {
         break;
       case 159:                    // ボール回収
         brake(80);
+        stop(10);
         right_motor.forward(rightspeed[1]);
         delay(180);
         brake(150);
@@ -379,7 +380,7 @@ void loop() {
         break;
 
       case 160:
-        if(analogRead(10) > 2000) update(); // コーンが近づいたら
+        if(analogRead(10) > 2200) update(); // コーンが近づいたら
         else linetrace_motor_operation(1);
         break;
       case 161:
