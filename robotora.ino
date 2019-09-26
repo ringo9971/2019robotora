@@ -54,34 +54,30 @@ int32_t light[FOT_NUM];                            // 取ってきた明るさ
 int32_t brightnum  = 0;                            // 一番明るい場所
 int32_t pbrightnum = 0;                            // 一個前の明るい場所
 boolean lightflag[FOT_NUM];                        // 明るかったらtrue
-  /* 3376,  3278,  3233,  3368,  3525,  3467,  3260,  3266 */
 int32_t maxlight[FOT_NUM] = { // 取ってきた明るさの最大値
-3401,
-3250,
-3170,
-3336,
-3513,
-3428,
-3198,
-3268
+ 3401,
+ 3250,
+ 3170,
+ 3336,
+ 3513,
+ 3428,
+ 3198,
+ 3268
 };
-  /* 1037,  934,  483,  924,  1218,  1429,  646,  1093 */
 int32_t minlight[FOT_NUM] = { // 取ってきた明るさの最小値
-615,
-562,
-282,
-453,
-966,
-1055,
-321,
-693
+  615,
+  562,
+  282,
+  453,
+  966,
+ 1055,
+  321,
+  693
 };
-
-int32_t theta = 75;
 
 // モータースピード
 const int32_t MAXSPEED = 4;                      // 最大スピード
-const int32_t rightspeed[5] = {255, 170, 142, 65, 0}; // 遅い→ 速い
+const int32_t rightspeed[5] = {255, 171, 142, 65, 0}; // 遅い→ 速い
 const int32_t leftspeed[5]  = {255, 180, 150, 70, 10}; // 遅い→ 速い
 
 // フラグ
@@ -103,11 +99,10 @@ int32_t now, past = -1;
 double lpf = 0.7;
 // 迷いの森
 const int32_t obs_ad = 2000;
-int32_t direction = 0, pdirection = 3;
-int32_t forestslope = 0;
+int32_t direction = 0;
 int32_t foresttimer;
 boolean robs = false, mobs = false, lobs = false;
-boolean straight = true;
+boolean forestline = false;
 
 // loop内で使用
 int32_t state = 150; // switch-caseで使用
@@ -135,10 +130,10 @@ void setup() {
       state = 150; // ボーナス
       break;
     case 4:
-      state = 160;
+      state = 200; // ボール回収
       break;
     case 5:
-      state = 300;
+      state = 300; // 右にシュート
       break;
     case 6:
       state = 999;
@@ -178,36 +173,34 @@ void loop() {
         break;
       case 1:
         linetrace_motor_operation(2);
-        if(rightturn || leftturn){               // ボール前のT字路
+        if(rightturn || leftturn){              // ボール前のT字路
           right_motor.forward(rightspeed[2]);
           left_motor.brake();
-          delay(85);
-          brake();
-          delay(150);
+          delay(140);
+          brake(170);
           forward(2);
           delay(660);
-          stop();                                // 少し待機児童
-          delay(1500);
+          stop(1500);                           // 少し待機児童
           back(2);
           delay(300);
-          l_leftangle(MAXSPEED);                 // T字路
+          l_leftangle(MAXSPEED);                // T字路
           l_leftangle(2, 2, 150);
           update();
         }
         break;
       case 2:
         linetrace_motor_operation(2);
-        if(rightturn || leftturn){               // 最初のT字路
+        if(rightturn || leftturn){              // 最初のT字路
           forward(2);
           delay(150);
-          r_rightangle(MAXSPEED, 2);             // 右に曲がる
+          r_rightangle(MAXSPEED, 2);            // 右に曲がる
           fold_flag();
           update();
         }
         break;
       case 3:
-        linetrace_motor_operation(MAXSPEED);     // 直線
-        if(leftturn){               // 迷いの森前のT字路
+        linetrace_motor_operation(MAXSPEED);    // 直線
+        if(leftturn){                           // 迷いの森前のT字路
           right_motor.halt();
           left_motor.forward(leftspeed[2]);
           delay(100);
@@ -216,45 +209,73 @@ void loop() {
         break;
 
        // ここから迷いの森
-      case 4: 
-        forest(1);
-        if(millis()-timer >= 1000 && lineflag){
-          update();
+      case 4:
+        if(go_forest(1)){
+          forward(1);
+          delay(200);
+          l_leftangle(MAXSPEED);
+          timer = millis();
+          state = 100;
         }
         break;
       case 5:
-        forest(1);
-        if(millis()-timer >= 1000 && lineflag){
-          update();
-        }
-        break;
-      case 6:
-        forward(1);
-        delay(200);
-        l_leftangle(MAXSPEED);
-        update();
-        break;
-      case 7:
-        state = 100;
+
+
+      /* case 4: */ 
+      /*   forest(1); */
+      /*   if(millis()-timer >= 1000 && lineflag){ */
+      /*     update(); */
+      /*   } */
+      /*   break; */
+      /* case 5: */
+      /*   forest(1); */
+      /*   if(millis()-timer >= 1000 && lineflag){ */
+      /*     update(); */
+      /*   } */
+      /*   break; */
+      /* case 6: */
+      /*   forward(1); */
+      /*   delay(200); */
+      /*   l_leftangle(MAXSPEED); */
+      /*   update(); */
+      /*   break; */
+
+      /* case 7: */
+      /*   state = 100; */
+
+
+      /* case 4: */
+      /*   forward(MAXSPEED); */
+      /*   if(millis()-timer >= 1000 && lineflag){ */
+      /*     update(); */
+      /*   } */
+      /*   break; */
+      /* case 5: */
+      /*   forward(MAXSPEED); */
+      /*   if(millis()-timer >= 1000 && lineflag){ */
+      /*     forward(1); */
+      /*     delay(200); */
+      /*     l_leftangle(MAXSPEED); */
+      /*     state = 100; */
+      /*   } */
+      /*   break; */
+
+
 
        // 迷いの森抜けた後
       case 100:
         linetrace_motor_operation(MAXSPEED);
-        if(!lineflag){                           // 1個目の左カーブ
-          stop();
-          brake();
-          delay(100);
+        if(!lineflag){              // 1個目の左カーブ
+          brake(100);
           l_leftangle(MAXSPEED);
           update();
         }
         break;
-      case 101:                                  // うねうね
+      case 101:                     // うねうね
         linetrace_motor_operation(MAXSPEED-1);
-        if(millis()-timer >= 4000){              // 右カーブ
+        if(millis()-timer >= 4000){ // 右カーブ
           if(rightturn || leftturn){
-            stop();
-            brake();
-            delay(100);
+            brake(100);
             r_rightangle(MAXSPEED);
             update();
           }
@@ -262,7 +283,7 @@ void loop() {
           fold_flag();
         }
         break;
-      case 102:                                  // 最後の直線
+      case 102:                     // 最後の直線
         linetrace_motor_operation(MAXSPEED);
         if(millis()-timer >= 2500){
           if(rightturn || leftturn) update();
@@ -290,15 +311,15 @@ void loop() {
         else linetrace_motor_operation(1);
         break;
       case 152:
-        stop();
+        stop(1);
         left_rotation(1);                   // 少し左回転
         delay(550);
         read_psd();
         while(mpsd <= 1500){
           read_psd();
-          left_rotation(1);                   // 少し左回転
+          left_rotation(1);                 // 少し左回転
         }
-        stop();
+        brake(150);
         update();
       case 153:
         update();
@@ -315,15 +336,15 @@ void loop() {
         if(millis()-timer <= 200){
           go_to_goal();
         }else{
-          stop();                           // ここでシュートする
-          delay(1500);
+          stop(1);                          // ここでシュートする
+          shoot();
           update();
         }
         break;
       case 156:
         back(1);
         delay(1200);
-        stop();
+        stop(1);
         right_motor.forward(rightspeed[1]);
         delay(200);
         l_leftangle(1, 1, 90);
@@ -342,19 +363,17 @@ void loop() {
         l_leftangle(2, 1, 50);
         update();
         break;
-      case 159:                              // ボール回収
-        stop();
-
+      case 159:                    // ボール回収
+        brake(80);
         right_motor.forward(rightspeed[1]);
-        delay(100);
+        delay(180);
+        brake(150);
 
         forward(1);
         delay(1050);
-        stop();
-        delay(1500);
+        stop(1500);
         back(1);
         delay(1300);
-        /* l_leftangle(1); */
         l_leftangle(1, 1, 30);
         update();
         break;
@@ -365,14 +384,16 @@ void loop() {
         break;
       case 161:
         stop();
-        right_rotation(1);                   // 少し左回転
+        right_rotation(1);                  // 少し右回転
         delay(550);
-        stop();
+        read_psd();
+        while(mpsd <= 1500){
+          right_rotation(1);                // 少し右回転
+          read_psd();
+        }
+        brake(150);
         update();
       case 162:
-        update();
-        break;
-      case 163:
         read_psd();
         if(analogRead(10) > 3500){          // コーンに接近
           update();
@@ -380,18 +401,51 @@ void loop() {
           go_to_goal();
         }
         break;
-      case 164:
+      case 163:
         if(millis()-timer <= 150){
           go_to_goal();
         }else{
-          stop();                           // ここでシュートする
-          delay(1500);
-          update();
+          stop(1);                           // ここでシュートする
+          while(1) shoot();
         }
         break;
-      case 165:
-        stop();
 
+
+        // ボール回収
+      case 200:
+        if(millis()-timer >= 1000 && (rightturn || leftturn)){ // 十字路
+          update();
+        }else{
+          linetrace_motor_operation(1);
+          fold_flag();                      // requied
+        }
+        break;
+      case 201:
+        if(millis()-timer >= 600 && (rightturn || leftturn)){
+          right_motor.forward(rightspeed[1]);
+          left_motor.brake();
+          delay(120);
+          update();
+        }else{
+          linetrace_motor_operation(1);
+          fold_flag();
+        }
+        break;
+      case 202:
+        brake(150);
+
+        forward(1);
+        delay(1050);
+        stop(1500);
+        back(1);
+        delay(1300);
+        l_leftangle(1, 1, 30);
+        timer = millis();
+        state = 160;
+        break;
+
+
+         // 右にゴール
       case 300:
         if(millis()-timer >= 1000 && (rightturn || leftturn)){ // 十字路
           forward(1);
@@ -404,42 +458,9 @@ void loop() {
         }
         break;
       case 301:
-        if(analogRead(10) > 2000) update(); // コーンが近づいたら
-        else linetrace_motor_operation(1);
+        state = 160;
+        timer = millis();
         break;
-      case 302:
-        stop();
-        right_rotation(1);                   // 少し左回転
-        delay(550);
-        read_psd();
-        while(mpsd <= 1500){
-          right_rotation(1); 
-          read_psd();
-        }
-        stop();
-        update();
-      case 303:
-        update();
-        break;
-      case 304:
-        read_psd();
-        if(analogRead(10) > 3500){          // コーンに接近
-          update();
-        }else{
-          go_to_goal();
-        }
-        break;
-      case 305:
-        if(millis()-timer <= 150){
-          go_to_goal();
-        }else{
-          stop();                           // ここでシュートする
-          delay(1500);
-          update();
-        }
-        break;
-      case 306:
-        stop();
 
 
       case 1000:
@@ -458,7 +479,7 @@ void loop() {
         break;
 
       default:
-        stop();
+        stop(1);
     }
   }
 }
@@ -496,13 +517,24 @@ void left_rotation(int speed){
   left_motor.back(leftspeed[speed]);
 }
 
-// 停止(デッドタイム1ms用)
+// 停止
+void stop(int time){
+  right_motor.halt();
+  left_motor.halt();
+  delay(time);
+}
 void stop(){
   right_motor.halt();
   left_motor.halt();
-  delay(1);
 }
 
+void brake(int32_t time){
+  stop(1);
+  right_motor.brake();
+  left_motor.brake();
+  delay(time);
+  stop(1);
+}
 void brake(){
   right_motor.brake();
   left_motor.brake();
@@ -536,141 +568,117 @@ void read_psd(){
   else lobs = false;
 }
 
-int32_t get_direct(){
-  read_psd();
-  if(robs && mobs && lobs){
-    if(pdirection == 2) return 5;
-    return 1;
+int32_t is_forestline(){
+  getangle();
+  if(lineflag && millis()-timer >= 1000){
+    if(forestline == false){
+      forestline = true;
+      timer = millis();
+    }else{
+      return 1;
+    }
   }
-  if(robs && mobs){
-    pdirection = 2;
-    return 1;
-  }
-  if(mobs && lobs){
-    pdirection = 4;
-    return 5;
-  }
-  if(robs && lobs){
-    if(pdirection == 2) return 5;
-    return 1;
-  }
-  if(robs){
-    pdirection = 2;
-    return 2;
-  }
-  if(mobs){
-    if(pdirection == 2) return 5;
-    return 1;
-  }
-  if(lobs){
-    pdirection = 4;
-    return 4;
-  }
-  return 3;
+
+  return 0;
 }
 
-void forest(int32_t speed){
+int go_forest(int32_t speed){
   read_psd();
   if(robs || mobs || lobs){
     if(direction%2 == 0){
-      stop();
+      brake(80);
+
+      foresttimer = millis();
       right_rotation(speed);
-      delay(500);
-      stop();
+      while(millis()-foresttimer <= 600){
+        if(is_forestline()) return 1;
+      }
+      brake(80);
+
+      foresttimer = millis();
       forward(speed);
-      delay(900);
-      stop();
+      while(millis()-foresttimer <= 1000){
+        if(is_forestline()) return 1;
+      }
+      brake(80);
+
+      foresttimer = millis();
       left_rotation(speed);
-      delay(500);
-      stop();
+      while(millis()-foresttimer <= 600){
+        if(is_forestline()) return 1;
+      }
+      brake(80);
     }else{
-      stop();
+      brake(80);
+
+      foresttimer = millis();
       left_rotation(speed);
-      delay(500);
-      stop();
+      while(millis()-foresttimer <= 600){
+        if(is_forestline()) return 1;
+      }
+      brake(80);
+
+      foresttimer = millis();
       forward(speed);
-      delay(900);
-      stop();
+      while(millis()-foresttimer <= 1000){
+        if(is_forestline()) return 1;
+      }
+      brake(80);
+
+      foresttimer = millis();
       right_rotation(speed);
-      delay(500);
-      stop();
+      while(millis()-foresttimer <= 600){
+        if(is_forestline()) return 1;
+      }
+      brake(80);
     }
+
     direction++;
   }else{
     forward(speed);
+    if(is_forestline()) return 1;
+  }
+
+  return 0;
+}
+
+void shoot(){
+  for(int32_t i = 1300; i <= 1450; i++){
+    sv.writeMicroseconds(i);
+    delay(8);
+  }
+  for(int32_t _ = 0; _ < 1; _++){
+    for(int32_t i = 1450; i <= 1650; i++){
+      sv.writeMicroseconds(i);
+      delay(8);
+    }
+    delay(1000);
+    for(int32_t i = 1650; i >= 1450; i--){
+      sv.writeMicroseconds(i);
+      delay(6);
+    }
+  }
+  for(int32_t i = 1450; i >= 1300; i--){
+    sv.writeMicroseconds(i);
+    delay(6);
   }
 }
-/* void forest(int32_t speed){ */
-/*   direction = get_direct(); */
-
-/*   if(direction != pdirection){ */
-/*     stop(); */
-/*   } */
-/*   if(direction != 3) straight = false; */
-
-/*   switch(direction){ */
-/*     case 1: */
-/*       left_rotation(speed+1); */
-/*       forestslope -= 2; */
-/*       break; */
-/*     case 2: */
-/*       right_motor.forward(rightspeed[speed]); */
-/*       left_motor.halt(); */
-/*       forestslope--; */
-/*       break; */
-/*     case 3: */
-/*       if(!straight){ */
-/*         foresttimer = millis(); */
-/*         straight = true; */
-/*       }else if(millis()-foresttimer >= 1000){ */
-/*         if(forestslope > 0){ */
-/*           right_motor.forward(rightspeed[speed]); */
-/*           left_motor.halt(); */
-/*           forestslope -= 2; */
-/*           if(forestslope < 0) forestslope = 0; */
-/*         }else if(forestslope < 0){ */
-/*           right_motor.halt(); */
-/*           left_motor.forward(leftspeed[speed]); */
-/*           forestslope += 2; */
-/*           if(forestslope > 0) forestslope = 0; */
-/*         }else{ */
-/*           forward(speed); */
-/*         } */
-/*       }else{ */
-/*         forward(speed); */
-/*       } */
-/*       break; */
-/*     case 4: */
-/*       right_motor.halt(); */
-/*       left_motor.forward(leftspeed[speed]); */
-/*       forestslope++; */
-/*       break; */
-/*     case 5: */
-/*       right_rotation(speed+1); */
-/*       break; */
-/*   } */
-/*   pdirection = direction; */
-/* } */
 
 // 右に90度曲がる
 void r_rightangle(int32_t maxspeed, int32_t minspeed, int32_t rad){
-  stop();                           // デッドタイム
+  stop(1);                           // デッドタイム
   getangle();
   while(lineflag){                  // 一度ラインが見えなくなるまで回転
     right_rotation(maxspeed);
-    /* right_motor.back(rightspeed[maxspeed]); */
-    /* left_motor.forward(leftspeed[maxspeed]); */
     getangle();
   }
   getangle();
   delay(10);
   while(!lineflag || angle >= rad){ // 復帰させる
     right_rotation(minspeed);
-    /* right_motor.back(rightspeed[minspeed]); */
-    /* left_motor.forward(leftspeed[minspeed]); */
     getangle();
   }
-  stop();                           // デッドタイム
+  stop(1);                           // デッドタイム
   fold_flag();
 }
 void r_rightangle(int32_t maxspeed, int32_t minspeed){
@@ -682,22 +690,18 @@ void r_rightangle(int32_t speed){
 
 // 左に90度曲がる
 void l_leftangle(int32_t maxspeed, int32_t minspeed, int32_t rad){
-  stop();                            // デッドタイム
+  stop(1);                            // デッドタイム
   getangle();
   while(lineflag){                   // 一度ラインが見えなくなるまで回転
     left_rotation(maxspeed);
-    /* right_motor.forward(rightspeed[maxspeed]); */
-    /* left_motor.back(leftspeed[maxspeed]); */
     getangle();
   }
   delay(10);
   while(!lineflag || angle <= -rad){ // 復帰させる
     left_rotation(minspeed);
-    /* right_motor.forward(rightspeed[minspeed]); */
-    /* left_motor.back(leftspeed[minspeed]); */
     getangle();
   }
-  stop();                            // デッドタイム
+  stop(1);                            // デッドタイム
   fold_flag();
 }
 void l_leftangle(int32_t maxspeed, int32_t minspeed){
@@ -731,7 +735,6 @@ void motor_operation(int32_t speed, int32_t maxspeed){
 void manipulation_calc(){ 
   manipulation = pgain*angle+dgain*(angle-pangle);   // PD
   manipulation = constrain(manipulation, -255, 255); // 安全のために必要
-  /* Serial.println(angle-pangle); */
 }
 
 // ライントレースをする
@@ -838,10 +841,8 @@ void getangle(){
   }
 
   if(brightnum == -1){
-    /* if(pbrightnum == 0) angle = -255.0;                        // 最小値 */
     if(pbrightnum == 0) angle = -255;                        // 最小値
   }else{
-    /* if(pbrightnum == 0) angle = -255.0;                        // 最小値 */
     if(pbrightnum == 0) angle = -255;                        // 最小値
     else if(brightnum != FOT_NUM-1){
       double cur = abs(light[brightnum+1]-light[brightnum-1]); // 一番明るいところの左右の差
