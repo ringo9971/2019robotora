@@ -77,7 +77,7 @@ int32_t minlight[FOT_NUM] = { // 取ってきた明るさの最小値
 
 // モータースピード
 const int32_t MAXSPEED = 4;                      // 最大スピード
-const int32_t rightspeed[5] = {255, 171, 142, 65, 0}; // 遅い→ 速い
+const int32_t rightspeed[5] = {255, 171, 142, 65, 10}; // 遅い→ 速い
 const int32_t leftspeed[5]  = {255, 180, 150, 70, 10}; // 遅い→ 速い
 
 // フラグ
@@ -98,11 +98,10 @@ int32_t prpsd = -1, pmpsd = -1, plpsd = -1;
 int32_t now, past = -1;
 double lpf = 0.7;
 // 迷いの森
-const int32_t obs_ad = 2000;
-int32_t direction = 0;
+const int32_t obs_ad = 2200;
+int32_t foreststate = 0;
 int32_t foresttimer;
 boolean robs = false, mobs = false, lobs = false;
-boolean forestline = false;
 
 // loop内で使用
 int32_t state = 150; // switch-caseで使用
@@ -139,7 +138,7 @@ void setup() {
       state = 999;
       break;
     case 7:
-      state = 1000;
+      state = 50;  // 迷いの森終了直前
       break;
     default:
       state = 0;
@@ -158,8 +157,8 @@ void setup() {
 
 void loop() {
   while(true){
-    getangle();
-    read_psd();
+    getangle(); // 角度の更新
+    read_psd(); // 赤外線センサの更新
     switch(state){
        // 迷いの森まで
       case 0:
@@ -176,11 +175,11 @@ void loop() {
         if(rightturn || leftturn){              // ボール前のT字路
           right_motor.forward(rightspeed[2]);
           left_motor.brake();
-          delay(135);
-          brake(170);
+          delay(145);
+          brake(140);
           forward(2);
           delay(660);
-          stop(1500);                           // 少し待機児童
+          ball_catch();                         // ボールの回収
           back(2);
           delay(300);
           l_leftangle(MAXSPEED);                // T字路
@@ -203,62 +202,33 @@ void loop() {
         if(leftturn){                           // 迷いの森前のT字路
           right_motor.halt();
           left_motor.forward(leftspeed[2]);
-          delay(100);
+          delay(130);
           update();
         }
         break;
 
        // ここから迷いの森
       case 4:
-        if(go_forest(1)){
+        if(go_forest(1)){           // 迷いの森抜けたら
           forward(1);
-          delay(200);
-          l_leftangle(MAXSPEED, 2);
+          delay(300);
+          l_leftangle(MAXSPEED, 2); // 左に曲がる
           timer = millis();
           state = 100;
         }
         break;
-      case 5:
 
 
-      /* case 4: */ 
-      /*   forest(1); */
-      /*   if(millis()-timer >= 1000 && lineflag){ */
-      /*     update(); */
-      /*   } */
-      /*   break; */
-      /* case 5: */
-      /*   forest(1); */
-      /*   if(millis()-timer >= 1000 && lineflag){ */
-      /*     update(); */
-      /*   } */
-      /*   break; */
-      /* case 6: */
-      /*   forward(1); */
-      /*   delay(200); */
-      /*   l_leftangle(MAXSPEED); */
-      /*   update(); */
-      /*   break; */
-
-      /* case 7: */
-      /*   state = 100; */
-
-
-      /* case 4: */
-      /*   forward(MAXSPEED); */
-      /*   if(millis()-timer >= 1000 && lineflag){ */
-      /*     update(); */
-      /*   } */
-      /*   break; */
-      /* case 5: */
-      /*   forward(MAXSPEED); */
-      /*   if(millis()-timer >= 1000 && lineflag){ */
-      /*     forward(1); */
-      /*     delay(200); */
-      /*     l_leftangle(MAXSPEED); */
-      /*     state = 100; */
-      /*   } */
-      /*   break; */
+      case 50:
+        forward(1);
+        if(lineflag){
+          forward(1);
+          delay(300);
+          l_leftangle(MAXSPEED, 2); // 左に曲がる
+          timer = millis();
+          state = 100;
+        }
+        break;
 
 
 
@@ -273,7 +243,7 @@ void loop() {
         break;
       case 101:                     // うねうね
         linetrace_motor_operation(MAXSPEED-1);
-        if(millis()-timer >= 4000){ // 右カーブ
+        if(millis()-timer >= 3800){ // 右カーブ
           if(rightturn || leftturn){
             brake(100);
             r_rightangle(MAXSPEED);
@@ -333,11 +303,14 @@ void loop() {
         }
         break;
       case 155:
-        if(millis()-timer <= 200){
+        if(millis()-timer <= 100){
           go_to_goal();
+        }else if(millis()-timer <= 150){
+          right_motor.forward(1);
         }else{
-          stop(1);                          // ここでシュートする
-          /* shoot(); */
+          stop(1);
+          delay(1000);
+          shoot(1, 990);                   // ここでシュートする
           update();
         }
         break;
@@ -347,7 +320,7 @@ void loop() {
         stop(1);
         right_motor.forward(rightspeed[1]);
         delay(200);
-        l_leftangle(1, 1, 90);
+        l_leftangle(1, 1, 90); // 復帰
         update();
         break;
       case 157:
@@ -367,12 +340,14 @@ void loop() {
         brake(80);
         stop(10);
         right_motor.forward(rightspeed[1]);
-        delay(180);
+        delay(230);
         brake(150);
+
+        delay(1000);
 
         forward(1);
         delay(1050);
-        stop(1500);
+        ball_catch();                       // ボールの回収
         back(1);
         delay(1300);
         l_leftangle(1, 1, 30);
@@ -403,13 +378,59 @@ void loop() {
         }
         break;
       case 163:
-        if(millis()-timer <= 150){
+        if(millis()-timer <= 100){
           go_to_goal();
+        }else if(millis()-timer <= 150){    // 少し右回転
+          right_motor.forward(1);
         }else{
-          stop(1);                           // ここでシュートする
-          while(1) shoot();
+          stop(1);
+          delay(1000);
+          shoot(1, 200);                    // ２つめのシュートする
+          update();
         }
         break;
+      case 164:                             // ３つめに向かう動作
+        back(1);
+        delay(150);
+        brake(100);
+        left_rotation(1);
+        delay(990);
+        brake(100);
+        update();
+        break;
+      case 165:
+        while(millis()-timer <= 1700){      // まっすぐ進む
+          go_to_goal();
+        }
+        brake(100);
+        read_psd();
+        while(mpsd <= 1800){
+          left_rotation(1);                 // 左回転
+          read_psd();
+        }
+        brake(100);
+        update();
+        break;
+      case 166:
+        read_psd();
+        if(analogRead(10) > 3500){          // コーンに接近
+          update();
+        }else{
+          go_to_goal();
+        }
+        break;
+      case 167:
+        if(millis()-timer <= 200){
+          go_to_goal();
+        }else if(millis()-timer <= 250){
+          right_motor.forward(1);
+        }else{
+          stop(1);                          // ３つめのシュートする
+          delay(1000);
+          while(1) shoot(10, 1200);
+          update();
+        }
+
 
 
         // ボール回収
@@ -434,16 +455,16 @@ void loop() {
         break;
       case 202:
         brake(150);
-
         forward(1);
         delay(1050);
-        stop(1500);
+        ball_catch();                                          // ボールの回収
         back(1);
         delay(1300);
         l_leftangle(1, 1, 30);
         timer = millis();
         state = 160;
         break;
+
 
 
          // 右にゴール
@@ -464,6 +485,7 @@ void loop() {
         break;
 
 
+         // debug用
       case 1000:
         // キャリブレーションをするなら必要
         for(int32_t i = 0; i < FOT_NUM; i++){ // 初期化
@@ -487,6 +509,17 @@ void loop() {
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
+
+void ball_catch(){
+  stop(200);
+  for(int32_t i = 75; i >= 66; i--){
+    sv.write(i);
+    delay(20);
+  }
+  stop(800);
+  sv.write(75);
+  stop(200);
+}
 
 void update(){
   state++;
@@ -530,11 +563,11 @@ void stop(){
 }
 
 void brake(int32_t time){
-  stop(1);
+  stop(10);
   right_motor.brake();
   left_motor.brake();
   delay(time);
-  stop(1);
+  stop(10);
 }
 void brake(){
   right_motor.brake();
@@ -548,6 +581,7 @@ void fold_flag(){
   lineflag  = true;
 }
 
+// PSDセンサの値を読みlpfをかける
 void read_psd(){
   rpsd = analogRead(9);
   mpsd = analogRead(10);
@@ -561,6 +595,7 @@ void read_psd(){
   pmpsd = mpsd;
   plpsd = lpsd;
 
+   // フラグの更新
   if(rpsd > obs_ad) robs = true;
   else robs = false;
   if(mpsd > obs_ad) mobs = true;
@@ -569,72 +604,72 @@ void read_psd(){
   else lobs = false;
 }
 
+// ２つめのラインを派遣したら１を返す
 int32_t is_forestline(){
   getangle();
-  if(lineflag && millis()-timer >= 1000){
-    if(forestline == false){
-      forestline = true;
-      timer = millis();
-    }else{
-      return 1;
-    }
+  read_psd();
+  if(lineflag && millis()-timer >= 4800){
+    return 1;
   }
 
   return 0;
 }
 
+// 迷いの森を進みたい
 int go_forest(int32_t speed){
   read_psd();
-  if(robs || mobs || lobs){
-    if(direction%2 == 0){
-      brake(80);
+  if(lobs || mobs || robs){
+    if(foreststate%2 == 0){
+      stop(80);
 
       foresttimer = millis();
       right_rotation(speed);
-      while(millis()-foresttimer <= 600){
+      while(millis()-foresttimer <= 500){
         if(is_forestline()) return 1;
       }
-      brake(80);
+      stop(80);
 
       foresttimer = millis();
       forward(speed);
-      while(millis()-foresttimer <= 1000){
+      while(millis()-foresttimer <= 800){
         if(is_forestline()) return 1;
       }
-      brake(80);
+      stop(80);
 
       foresttimer = millis();
       left_rotation(speed);
       while(millis()-foresttimer <= 600){
         if(is_forestline()) return 1;
       }
-      brake(80);
-    }else{
-      brake(80);
+      stop(80);
+
+      foreststate++;
+    }else if(foreststate%2 == 1){
+      stop(80);
 
       foresttimer = millis();
       left_rotation(speed);
       while(millis()-foresttimer <= 600){
         if(is_forestline()) return 1;
       }
-      brake(80);
+      stop(80);
 
       foresttimer = millis();
       forward(speed);
-      while(millis()-foresttimer <= 1000){
+      while(millis()-foresttimer <= 800){
         if(is_forestline()) return 1;
       }
-      brake(80);
+      stop(80);
 
       foresttimer = millis();
       right_rotation(speed);
-      while(millis()-foresttimer <= 600){
+      while(millis()-foresttimer <= 650){
         if(is_forestline()) return 1;
       }
-      brake(80);
+      stop(80);
+
+      foreststate++;
     }
-
-    direction++;
   }else{
     forward(speed);
     if(is_forestline()) return 1;
@@ -643,17 +678,18 @@ int go_forest(int32_t speed){
   return 0;
 }
 
-void shoot(){
+// ボールをシュートする
+void shoot(int32_t cnt, int32_t time){
   for(int32_t i = 1300; i <= 1450; i++){
     sv.writeMicroseconds(i);
-    delay(8);
+    delay(4);
   }
-  for(int32_t _ = 0; _ < 1; _++){
+  for(int32_t _ = 0; _ < cnt; _++){
     for(int32_t i = 1450; i <= 1650; i++){
       sv.writeMicroseconds(i);
       delay(8);
     }
-    delay(1000);
+    delay(time);
     for(int32_t i = 1650; i >= 1450; i--){
       sv.writeMicroseconds(i);
       delay(6);
@@ -661,7 +697,7 @@ void shoot(){
   }
   for(int32_t i = 1450; i >= 1300; i--){
     sv.writeMicroseconds(i);
-    delay(6);
+    delay(4);
   }
 }
 
