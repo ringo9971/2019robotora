@@ -76,9 +76,9 @@ int32_t minlight[FOT_NUM] = { // 取ってきた明るさの最小値
 };
 
 // モータースピード
-const int32_t MAXSPEED = 4;                      // 最大スピード
-const int32_t rightspeed[5] = {255, 171, 142, 65, 10}; // 遅い→ 速い
-const int32_t leftspeed[5]  = {255, 180, 150, 70, 10}; // 遅い→ 速い
+const int32_t MAXSPEED = 4;                            // 最大スピード
+const int32_t rightspeed[5] = {255, 171, 142, 65, 0}; // 遅い→ 速い
+const int32_t leftspeed[5]  = {255, 178, 150, 70, 0}; // 遅い→ 速い
 
 // フラグ
 boolean rightturn = false; // 右直角
@@ -93,19 +93,19 @@ double angle  = 0.0;       // 角度
 double pangle = 0.0;       // 一個前の角度
 
 // psd関係
-int32_t rpsd, mpsd, lpsd;
-int32_t prpsd = -1, pmpsd = -1, plpsd = -1;
-int32_t now, past = -1;
-double lpf = 0.7;
+int32_t rpsd, mpsd, lpsd;                   // 3つのPSDの値
+int32_t prpsd = -1, pmpsd = -1, plpsd = -1; // 3つのPSDの一つ前の値
+int32_t now, past = -1;                     // 今の操作量と一つ前の操作量
+double lpf = 0.7;                           // ローパスフィルター
 // 迷いの森
-const int32_t obs_ad = 2200;
-int32_t foreststate = 0;
-int32_t foresttimer;
-boolean robs = false, mobs = false, lobs = false;
+const int32_t obs_ad = 2200;                      // PSDのしきい値
+int32_t foreststate = 0;                          // 迷いの森での状態量
+int32_t foresttimer;                              // 迷いの森内で使用するタイマー
+boolean robs = false, mobs = false, lobs = false; // 3つのPSDの前にものがあったらtrue
 
 // loop内で使用
-int32_t state = 150; // switch-caseで使用
-int32_t timer;       // timer
+int32_t state = 150; // switch-caseで使用する状態量
+int32_t timer;       // タイマー
 
 void setup() {
   Serial.begin(115200); // debug用
@@ -117,35 +117,35 @@ void setup() {
 
   switch(!digitalRead(21)*4+!digitalRead(18)*2+!digitalRead(15)){
     case 0:
-      state = 0;   // スタート
+      state = 0;    // スタート
       break;
     case 1:
-      state = 4;   // 迷いの森
+      state = 4;    // 迷いの森
       break;
     case 2:
-      state = 100; // 迷いの森抜けた後
+      state = 100;  // 迷いの森抜けた後
       break;
     case 3:
-      state = 150; // ボーナス
+      state = 150;  // ボーナス
       break;
     case 4:
-      state = 200; // ボール回収
+      state = 200;  // ボール回収
       break;
     case 5:
-      state = 300; // 右にシュート
+      state = 300;  // 右にシュート
       break;
     case 6:
-      state = 999;
+      state = 1000; // angleをSerialで見る
       break;
     case 7:
-      state = 50;  // 迷いの森終了直前
+      state = 50;   // 迷いの森終了直前
       break;
     default:
-      state = 0;
+      state = 0;    // スタート
   }
 
   sv.attach(13);
-  sv.write(75);
+  sv.write(75); // 初期角度
 
   analogReadResolution(12); // analogReadが12bitで読まれる(Dueのみ）
 
@@ -163,7 +163,7 @@ void loop() {
        // 迷いの森まで
       case 0:
         if(millis()-timer >= 800 && rightturn){ // 最初のT字路
-          r_rightangle(3, 2, 30);
+          r_rightangle(3, 2, 30);               // 右に曲がる
           update();
         }else{
           linetrace_motor_operation(1);
@@ -173,9 +173,9 @@ void loop() {
       case 1:
         linetrace_motor_operation(2);
         if(rightturn || leftturn){              // ボール前のT字路
-          right_motor.forward(rightspeed[2]);
+          right_motor.forward(rightspeed[2]);   // 角度合わせ
           left_motor.brake();
-          delay(145);
+          delay(125);
           brake(140);
           forward(2);
           delay(660);
@@ -201,7 +201,7 @@ void loop() {
         linetrace_motor_operation(MAXSPEED);    // 直線
         if(leftturn){                           // 迷いの森前のT字路
           right_motor.halt();
-          left_motor.forward(leftspeed[2]);
+          left_motor.forward(leftspeed[2]);     // 角度合わせ
           delay(130);
           update();
         }
@@ -287,11 +287,11 @@ void loop() {
         read_psd();
         while(mpsd <= 1500){
           read_psd();
-          left_rotation(1);                 // 少し左回転
+          left_rotation(1);
         }
         brake(150);
         update();
-      case 153:
+      case 153: // 後で消して
         update();
         break;
       case 154:
@@ -299,7 +299,7 @@ void loop() {
         if(analogRead(10) > 3500){          // コーンに接近
           update();
         }else{
-          go_to_goal();
+          go_to_goal();                     // ゴールに近づく
         }
         break;
       case 155:
@@ -310,7 +310,7 @@ void loop() {
         }else{
           stop(1);
           delay(1000);
-          shoot(1, 990);                   // ここでシュートする
+          shoot(3, 990);                   // ここでシュートする
           update();
         }
         break;
@@ -336,11 +336,11 @@ void loop() {
         l_leftangle(2, 1, 50);
         update();
         break;
-      case 159:                    // ボール回収
+      case 159:
         brake(80);
         stop(10);
         right_motor.forward(rightspeed[1]);
-        delay(230);
+        delay(210);
         brake(150);
 
         delay(1000);
@@ -364,7 +364,7 @@ void loop() {
         delay(550);
         read_psd();
         while(mpsd <= 1500){
-          right_rotation(1);                // 少し右回転
+          right_rotation(1);
           read_psd();
         }
         brake(150);
@@ -380,7 +380,7 @@ void loop() {
       case 163:
         if(millis()-timer <= 100){
           go_to_goal();
-        }else if(millis()-timer <= 150){    // 少し右回転
+        }else if(millis()-timer <= 150){    // 少し左回転
           right_motor.forward(1);
         }else{
           stop(1);
@@ -456,7 +456,7 @@ void loop() {
       case 202:
         brake(150);
         forward(1);
-        delay(1050);
+        delay(950);
         ball_catch();                                          // ボールの回収
         back(1);
         delay(1300);
@@ -638,7 +638,7 @@ int go_forest(int32_t speed){
 
       foresttimer = millis();
       left_rotation(speed);
-      while(millis()-foresttimer <= 600){
+      while(millis()-foresttimer <= 550){
         if(is_forestline()) return 1;
       }
       stop(80);
@@ -649,7 +649,7 @@ int go_forest(int32_t speed){
 
       foresttimer = millis();
       left_rotation(speed);
-      while(millis()-foresttimer <= 600){
+      while(millis()-foresttimer <= 590){
         if(is_forestline()) return 1;
       }
       stop(80);
@@ -663,7 +663,7 @@ int go_forest(int32_t speed){
 
       foresttimer = millis();
       right_rotation(speed);
-      while(millis()-foresttimer <= 650){
+      while(millis()-foresttimer <= 660){
         if(is_forestline()) return 1;
       }
       stop(80);
